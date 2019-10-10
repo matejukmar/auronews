@@ -4,6 +4,8 @@ const util = require('util')
 async function getPosts(ctx) {
   ctx.set('Content-Type', 'application/json')
 
+  const section = ctx.query.section
+
   const conn = mysql.createConnection({
     host: 'localhost',
     user: 'root',
@@ -14,7 +16,21 @@ async function getPosts(ctx) {
   conn.query = util.promisify(conn.query)
 
   try {
-    const results = await conn.query('SELECT id, title, text, dateStart, location FROM Posts')
+    let results = [];
+
+    if (section) {
+      results = await conn.query(`
+        SELECT id, title, text, dateStart, location 
+        FROM Posts 
+        INNER JOIN Section_Post 
+        ON Posts.id = Section_Post.postId 
+        WHERE Section_Post.sectionId = ?     
+      `, [section]
+      )
+    } else {
+      results = await conn.query('SELECT id, title, text, dateStart, location FROM Posts')
+    }
+
     const jsonResult = results.map((row) => {
       return {
         id: row.id,
@@ -24,6 +40,7 @@ async function getPosts(ctx) {
         location: row.location
       }
     })
+
     ctx.body = jsonResult
     ctx.status = 200
   } catch (err) {
